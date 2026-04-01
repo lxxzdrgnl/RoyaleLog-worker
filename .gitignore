@@ -1,0 +1,28 @@
+# Worktrees
+.worktrees/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
+
+# Environment
+.env
+
+# Models
+*.joblib
+*.pkl
+mlruns/
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# OS
+.DS_Store

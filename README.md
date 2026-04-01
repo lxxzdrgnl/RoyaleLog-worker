@@ -39,6 +39,7 @@ ladder        → 카드별 레벨 차이가 승패에 직접 영향 (evolution_
 | 분류 | 기술 |
 |------|------|
 | Language | Python 3.11+ |
+| Package Manager | uv (pyproject.toml + uv.lock) |
 | Framework | FastAPI + uvicorn |
 | ML | LightGBM (Predictor ABC → NN 교체 가능 구조) |
 | DB | SQLAlchemy + PostgreSQL (RoyaleLog-api와 동일 DB) |
@@ -58,14 +59,13 @@ ladder        → 카드별 레벨 차이가 승패에 직접 영향 (evolution_
 cp .env.example .env
 # .env 열어서 DB_PASSWORD 채우기
 
-# 2. 가상환경 + 의존성 설치
-python -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
+# 2. 의존성 설치 (uv)
+uv sync
 
 # 3. 실행
-python -m app.main
+uv run python -m app.main
 # → http://localhost:8082
+# → Swagger UI: http://localhost:8082/docs
 ```
 
 ### Docker Compose (권장)
@@ -121,6 +121,8 @@ docker compose down
 |------|-----|
 | Base URL | `http://localhost:8082` |
 | Health Check | `http://localhost:8082/health` |
+| Swagger UI | `http://localhost:8082/docs` |
+| ReDoc | `http://localhost:8082/redoc` |
 | MLflow UI | `http://localhost:5000` |
 
 ---
@@ -129,7 +131,7 @@ docker compose down
 
 ```
 app/
-├── main.py                     # FastAPI 앱, lifespan, router 등록
+├── main.py                     # FastAPI 앱, lifespan, router 등록, crash recovery
 │
 ├── api/                        # HTTP 엔드포인트
 │   ├── health.py               # GET /health
@@ -138,7 +140,10 @@ app/
 │
 ├── core/                       # 설정 및 인프라
 │   ├── config.py               # Pydantic Settings (환경변수)
-│   └── database.py             # SQLAlchemy engine + context manager
+│   ├── database.py             # SQLAlchemy engine + context manager
+│   ├── errors.py               # ErrorCode enum + ErrorResponse 스키마
+│   ├── exception_handler.py    # 전역 예외 핸들러 (validation, HTTP, unhandled)
+│   └── middleware.py           # 요청/응답 로깅 미들웨어
 │
 ├── ml/                         # 머신러닝 레이어
 │   ├── predictor.py            # Predictor ABC (인터페이스)
@@ -223,6 +228,41 @@ GET /train/status
   "error": null
 }
 ```
+
+---
+
+## 에러 응답 규격
+
+모든 에러는 동일한 JSON 구조로 반환된다.
+
+```json
+{
+  "timestamp": "2026-04-01T12:00:00Z",
+  "path": "/predict/matchup",
+  "status": 503,
+  "code": "MODEL_NOT_LOADED",
+  "message": "No model loaded for battle_type=pathOfLegend",
+  "details": null
+}
+```
+
+| HTTP | 에러 코드 | 설명 |
+|------|-----------|------|
+| 400 | `BAD_REQUEST` | 요청 형식 오류 |
+| 400 | `VALIDATION_FAILED` | 필드 유효성 검사 실패 (details에 필드별 오류) |
+| 400 | `INVALID_QUERY_PARAM` | 쿼리 파라미터 값 오류 |
+| 404 | `RESOURCE_NOT_FOUND` | 리소스 없음 |
+| 404 | `MODEL_NOT_FOUND` | 요청한 모델 없음 |
+| 409 | `STATE_CONFLICT` | 리소스 상태 충돌 |
+| 409 | `TRAINING_CONFLICT` | 학습 중 중복 트리거 |
+| 422 | `UNPROCESSABLE_ENTITY` | 형식은 맞지만 처리 불가 |
+| 429 | `TOO_MANY_REQUESTS` | 요청 한도 초과 |
+| 500 | `INTERNAL_SERVER_ERROR` | 서버 내부 오류 |
+| 500 | `DATABASE_ERROR` | DB 연동 오류 |
+| 500 | `UNKNOWN_ERROR` | 알 수 없는 오류 (최종 fallback) |
+| 503 | `MODEL_NOT_LOADED` | 해당 모드 모델 미로드 |
+
+Swagger UI(`/docs`)에서 각 엔드포인트별 에러 응답 예시 확인 가능.
 
 ---
 
@@ -342,7 +382,8 @@ Spring Boot (BFF)
 | `mlflow` | ghcr.io/mlflow/mlflow | 5000 | Tracking Server (PostgreSQL 백엔드 스토어) |
 
 - MLflow 테이블은 최초 실행 시 자동 생성 (Flyway 불필요)
-- MLflow artifact는 named volume (`mlflow_artifacts`) 마운트 → 컨테이너 재시작에도 보존
+- MLflow artifact는 named volume (`mlflow-artifacts`) 마운트 → 컨테이너 재시작에도 보존
+- Worker 모델 파일은 named volume (`worker-models`) 마운트 → 재시작 후에도 모델 유지
 
 ---
 

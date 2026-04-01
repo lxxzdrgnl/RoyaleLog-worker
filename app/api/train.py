@@ -10,6 +10,7 @@ from fastapi import APIRouter, Request, BackgroundTasks, HTTPException, Query
 from sqlalchemy import text
 
 from app.core.database import get_session
+from app.core.errors import ErrorResponse
 from app.ml.feature_builder import FeatureBuilder
 from app.ml.trainer import Trainer
 from app.schemas.train import TrainResponse, TrainStatusResponse
@@ -43,10 +44,34 @@ def train_status(request: Request):
 
 _TRAIN_ERROR_RESPONSES = {
     409: {
+        "model": ErrorResponse,
         "description": "Training already in progress",
         "content": {
             "application/json": {
-                "example": {"detail": "Training already in progress"}
+                "example": {
+                    "timestamp": "2026-04-01T12:00:00Z",
+                    "path": "/train",
+                    "status": 409,
+                    "code": "TRAINING_CONFLICT",
+                    "message": "Training already in progress",
+                    "details": None
+                }
+            }
+        },
+    },
+    500: {
+        "model": ErrorResponse,
+        "description": "Internal server error",
+        "content": {
+            "application/json": {
+                "example": {
+                    "timestamp": "2026-04-01T12:00:00Z",
+                    "path": "/train",
+                    "status": 500,
+                    "code": "INTERNAL_SERVER_ERROR",
+                    "message": "An unexpected error occurred",
+                    "details": None
+                }
             }
         },
     },

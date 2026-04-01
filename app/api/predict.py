@@ -5,6 +5,7 @@ import numpy as np
 from fastapi import APIRouter, Request, HTTPException
 from fastapi.responses import JSONResponse
 
+from app.core.errors import ErrorResponse
 from app.schemas.predict import PredictRequest, PredictResponse
 
 router = APIRouter(prefix="/predict", tags=["Prediction"])
@@ -12,18 +13,50 @@ logger = logging.getLogger(__name__)
 
 _ERROR_RESPONSES = {
     422: {
+        "model": ErrorResponse,
         "description": "Validation error — deck must have 8-9 cards",
         "content": {
             "application/json": {
-                "example": {"detail": [{"loc": ["body", "deck_card_ids"], "msg": "List should have at least 8 items", "type": "too_short"}]}
+                "example": {
+                    "timestamp": "2026-04-01T12:00:00Z",
+                    "path": "/predict/matchup",
+                    "status": 422,
+                    "code": "VALIDATION_FAILED",
+                    "message": "Request validation failed",
+                    "details": {"deck_card_ids": "List should have at least 8 items after validation, not 7"}
+                }
             }
         },
     },
     503: {
-        "description": "Model not loaded for the requested battle_type",
+        "model": ErrorResponse,
+        "description": "No model loaded for the requested battle_type",
         "content": {
             "application/json": {
-                "example": {"detail": "No model loaded for battle_type=pathOfLegend"}
+                "example": {
+                    "timestamp": "2026-04-01T12:00:00Z",
+                    "path": "/predict/matchup",
+                    "status": 503,
+                    "code": "MODEL_NOT_LOADED",
+                    "message": "No model loaded for battle_type=pathOfLegend",
+                    "details": None
+                }
+            }
+        },
+    },
+    500: {
+        "model": ErrorResponse,
+        "description": "Internal server error",
+        "content": {
+            "application/json": {
+                "example": {
+                    "timestamp": "2026-04-01T12:00:00Z",
+                    "path": "/predict/matchup",
+                    "status": 500,
+                    "code": "INTERNAL_SERVER_ERROR",
+                    "message": "An unexpected error occurred",
+                    "details": None
+                }
             }
         },
     },

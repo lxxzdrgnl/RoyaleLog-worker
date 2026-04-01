@@ -21,5 +21,9 @@ def get_session() -> Generator[Session, None, None]:
     session = _SessionLocal()
     try:
         yield session
+        session.commit()
+    except Exception:
+        session.rollback()
+        raise
     finally:
         session.close()

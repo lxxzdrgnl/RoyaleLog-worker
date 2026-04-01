@@ -1,14 +1,13 @@
-import os
 import pytest
+from app.core.config import Settings
 
 
-def test_settings_loads_defaults():
-    os.environ.setdefault("DB_HOST", "localhost")
-    os.environ.setdefault("DB_PORT", "5434")
-    os.environ.setdefault("DB_NAME", "royalelog")
-    os.environ.setdefault("DB_USER", "royale")
-    os.environ.setdefault("DB_PASSWORD", "test")
-    from app.core.config import Settings
+def test_settings_loads_defaults(monkeypatch):
+    monkeypatch.setenv("DB_HOST", "localhost")
+    monkeypatch.setenv("DB_PORT", "5434")
+    monkeypatch.setenv("DB_NAME", "royalelog")
+    monkeypatch.setenv("DB_USER", "royale")
+    monkeypatch.setenv("DB_PASSWORD", "test")
     s = Settings()
     assert s.db_host == "localhost"
     assert s.window_days == 3
@@ -20,13 +19,12 @@ def test_settings_loads_defaults():
     assert s.state_file_path == "./training_state.json"
 
 
-def test_settings_db_url():
-    os.environ.setdefault("DB_HOST", "localhost")
-    os.environ.setdefault("DB_PORT", "5434")
-    os.environ.setdefault("DB_NAME", "royalelog")
-    os.environ.setdefault("DB_USER", "royale")
-    os.environ.setdefault("DB_PASSWORD", "test")
-    from app.core.config import Settings
+def test_settings_db_url(monkeypatch):
+    monkeypatch.setenv("DB_HOST", "localhost")
+    monkeypatch.setenv("DB_PORT", "5434")
+    monkeypatch.setenv("DB_NAME", "royalelog")
+    monkeypatch.setenv("DB_USER", "royale")
+    monkeypatch.setenv("DB_PASSWORD", "test")
     s = Settings()
     assert "postgresql" in s.db_url
     assert "royalelog" in s.db_url

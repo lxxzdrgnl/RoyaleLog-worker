@@ -49,6 +49,21 @@ async def lifespan(app: FastAPI):
             logger.warning("No model found for battle_type=%s", battle_type)
     app.state.predictors = predictors
 
+    # Recover stale training state (running → failed if worker was killed mid-training)
+    import json, os
+    state_path = settings.state_file_path
+    if os.path.exists(state_path):
+        with open(state_path) as f:
+            state = json.load(f)
+        if state.get("status") == "running":
+            from datetime import datetime, timezone
+            state["status"] = "failed"
+            state["error"] = "Worker restarted during training"
+            state["finished_at"] = datetime.now(timezone.utc).isoformat()
+            with open(state_path, "w") as f:
+                json.dump(state, f, default=str)
+            logger.warning("Recovered stale training state: running → failed")
+
     yield
 
     logger.info("Worker shutting down")
@@ -71,3 +86,8 @@ def create_app() -> FastAPI:
 
 
 app = create_app()
+
+if __name__ == "__main__":
+    import uvicorn
+    settings = Settings()
+    uvicorn.run("app.main:app", host="0.0.0.0", port=settings.worker_port, reload=True)

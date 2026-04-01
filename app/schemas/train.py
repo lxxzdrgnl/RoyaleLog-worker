@@ -3,12 +3,37 @@ from pydantic import BaseModel
 
 
 class TrainResponse(BaseModel):
-    status: str  # "accepted" or "conflict"
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "status": "accepted",
+                "message": "Training started"
+            }
+        }
+    }
+
+    status: str
     message: str
 
 
 class TrainStatusResponse(BaseModel):
-    status: str  # idle, running, success, failed
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "status": "success",
+                "started_at": "2026-04-01T03:00:00Z",
+                "finished_at": "2026-04-01T03:05:23Z",
+                "model_version": "lgbm-pathOfLegend-20260401030523",
+                "train_rows": 85000,
+                "val_rows": 12000,
+                "val_accuracy": 0.6341,
+                "val_logloss": 0.6712,
+                "error": None
+            }
+        }
+    }
+
+    status: str
     started_at: datetime | None = None
     finished_at: datetime | None = None
     model_version: str | None = None

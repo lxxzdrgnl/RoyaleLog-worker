@@ -3,14 +3,44 @@ import logging
 
 import numpy as np
 from fastapi import APIRouter, Request, HTTPException
+from fastapi.responses import JSONResponse
 
 from app.schemas.predict import PredictRequest, PredictResponse
 
-router = APIRouter(prefix="/predict")
+router = APIRouter(prefix="/predict", tags=["Prediction"])
 logger = logging.getLogger(__name__)
 
+_ERROR_RESPONSES = {
+    422: {
+        "description": "Validation error — deck must have 8-9 cards",
+        "content": {
+            "application/json": {
+                "example": {"detail": [{"loc": ["body", "deck_card_ids"], "msg": "List should have at least 8 items", "type": "too_short"}]}
+            }
+        },
+    },
+    503: {
+        "description": "Model not loaded for the requested battle_type",
+        "content": {
+            "application/json": {
+                "example": {"detail": "No model loaded for battle_type=pathOfLegend"}
+            }
+        },
+    },
+}
 
-@router.post("/matchup", response_model=PredictResponse)
+
+@router.post(
+    "/matchup",
+    response_model=PredictResponse,
+    responses=_ERROR_RESPONSES,
+    summary="Predict matchup win probability",
+    description=(
+        "Returns the predicted win probability for the given deck vs opponent deck. "
+        "Requires a trained model for the specified `battle_type`. "
+        "Returns 503 if no model is loaded — Spring Boot should fall back to stats-based prediction."
+    ),
+)
 async def predict_matchup(req: PredictRequest, request: Request):
     lock: asyncio.Lock = request.app.state.model_lock
 
@@ -32,7 +62,7 @@ async def predict_matchup(req: PredictRequest, request: Request):
         opponent_card_ids=req.opponent_card_ids,
         opponent_card_levels=req.opponent_card_levels,
         opponent_evo_levels=req.opponent_evo_levels,
-        avg_level=0.0,  # unknown at inference time
+        avg_level=0.0,
         evolution_count=sum(1 for e in req.deck_evo_levels if e > 0),
         league_number=req.league_number,
         starting_trophies=req.starting_trophies,

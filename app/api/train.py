@@ -14,7 +14,7 @@ from app.ml.feature_builder import FeatureBuilder
 from app.ml.trainer import Trainer
 from app.schemas.train import TrainResponse, TrainStatusResponse
 
-router = APIRouter(prefix="/train")
+router = APIRouter(prefix="/train", tags=["Training"])
 logger = logging.getLogger(__name__)
 
 
@@ -30,13 +30,42 @@ def _write_state(path: str, state: dict) -> None:
         json.dump(state, f, default=str)
 
 
-@router.get("/status", response_model=TrainStatusResponse)
+@router.get(
+    "/status",
+    response_model=TrainStatusResponse,
+    summary="Get training status",
+    description="Returns current training state. Status values: `idle`, `running`, `success`, `failed`.",
+)
 def train_status(request: Request):
     path = request.app.state.settings.state_file_path
     return TrainStatusResponse(**_read_state(path))
 
 
-@router.post("", response_model=TrainResponse, status_code=202)
+_TRAIN_ERROR_RESPONSES = {
+    409: {
+        "description": "Training already in progress",
+        "content": {
+            "application/json": {
+                "example": {"detail": "Training already in progress"}
+            }
+        },
+    },
+}
+
+
+@router.post(
+    "",
+    response_model=TrainResponse,
+    status_code=202,
+    responses=_TRAIN_ERROR_RESPONSES,
+    summary="Trigger model retraining",
+    description=(
+        "Starts async retraining for all configured battle types. "
+        "Use `?reset_window=true` after a game patch to record the patch date and pause training "
+        "for `MIN_POST_PATCH_DAYS` days to avoid training on noisy post-patch data. "
+        "Returns 409 if training is already running."
+    ),
+)
 async def trigger_train(
     request: Request,
     background_tasks: BackgroundTasks,
